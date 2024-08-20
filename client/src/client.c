@@ -16,6 +16,14 @@ int main(void)
 
 	logger = iniciar_logger();
 
+logger = log_create("tp0.log", "tp0", true, LOG_LEVEL_INFO);
+
+if(logger==NULL){
+	printf("Error al crear el logger.\n");
+	return 1;
+}
+log_info(logger, "Hola! Soy un log");
+
 	// Usando el logger creado previamente
 	// Escribi: "Hola! Soy un log"
 
@@ -23,6 +31,15 @@ int main(void)
 	/* ---------------- ARCHIVOS DE CONFIGURACION ---------------- */
 
 	config = iniciar_config();
+	config = config_create("cliente.config");
+
+	if (config == NULL) {
+        printf("Error al cargar el archivo de configuración.\n");
+        return 1;
+    }
+	valor= config_get_string_value(config, "CLAVE");
+
+	log_info(logger,valor);
 
 	// Usando el config creado previamente, leemos los valores del config y los 
 	// dejamos en las variables 'ip', 'puerto' y 'valor'
@@ -50,6 +67,9 @@ int main(void)
 
 	/*---------------------------------------------------PARTE 5-------------------------------------------------------------*/
 	// Proximamente
+	config_destroy(config);
+	log_destroy(logger);
+	return 0;
 }
 
 t_log* iniciar_logger(void)
@@ -73,11 +93,18 @@ void leer_consola(t_log* logger)
 	// La primera te la dejo de yapa
 	leido = readline("> ");
 
+    while(strcmp(leido,"")!=0){
+
+    log_info(logger,leido);
+	free(leido);
+	leido=readline("> ");
+
+}
 	// El resto, las vamos leyendo y logueando hasta recibir un string vacío
 
 
 	// ¡No te olvides de liberar las lineas antes de regresar!
-
+free(leido);
 }
 
 void paquete(int conexion)
