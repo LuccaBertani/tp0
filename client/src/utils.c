@@ -16,27 +16,49 @@ void* serializar_paquete(t_paquete* paquete, int bytes)
 	return magic;
 }
 
-int crear_conexion(char *ip, char* puerto)
-{
-	struct addrinfo hints;
-	struct addrinfo *server_info;
+int crear_conexion(char *ip, char* puerto) {
+    struct addrinfo hints;
+    struct addrinfo *server_info;
+    struct addrinfo *p;
+    int socket_cliente = -1; // Inicializar en un valor inválido
+    int err;
 
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = AI_PASSIVE;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = 0; // No usar AI_PASSIVE si estamos conectando a una IP específica
 
-	getaddrinfo(ip, puerto, &hints, &server_info);
+    err = getaddrinfo(ip, puerto, &hints, &server_info);
+    if (err != 0) {
+        fprintf(stderr, "Error en getaddrinfo: %s\n", gai_strerror(err));
+        return -1; // Error al obtener información del servidor
+    }
 
-	// Ahora vamos a crear el socket.
-	int socket_cliente = 0;
+    // Iterar a través de la lista de resultados y tratar de conectarse
+    for (p = server_info; p != NULL; p = p->ai_next) {
+        socket_cliente = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if (socket_cliente == -1) {
+            perror("Error al crear el socket");
+            continue; // Intentar con la siguiente dirección
+        }
 
-	// Ahora que tenemos el socket, vamos a conectarlo
+        if (connect(socket_cliente, p->ai_addr, p->ai_addrlen) == -1) {
+            close(socket_cliente); // Cerrar el socket en caso de error
+            perror("Error al conectar");
+            continue; // Intentar con la siguiente dirección
+        }
 
+        break; // Si llegamos aquí, la conexión fue exitosa
+    }
 
-	freeaddrinfo(server_info);
+    freeaddrinfo(server_info); // Liberar la memoria asignada por getaddrinfo()
 
-	return socket_cliente;
+    if (p == NULL) {
+        fprintf(stderr, "No se pudo conectar a ninguna de las direcciones proporcionadas\n");
+        return -1; // No se pudo conectar
+    }
+
+    return socket_cliente;
 }
 
 void enviar_mensaje(char* mensaje, int socket_cliente)

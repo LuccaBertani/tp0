@@ -38,6 +38,8 @@ log_info(logger, "Hola! Soy un log");
         return 1;
     }
 	valor= config_get_string_value(config, "CLAVE");
+	ip = config_get_string_value(config, "IP");
+	puerto = config_get_string_value(config, "PUERTO");
 
 	log_info(logger,valor);
 
@@ -60,6 +62,8 @@ log_info(logger, "Hola! Soy un log");
 
 	// Enviamos al servidor el valor de CLAVE como mensaje
 
+	enviar_mensaje(valor,conexion);
+
 	// Armamos y enviamos el paquete
 	paquete(conexion);
 
@@ -67,8 +71,6 @@ log_info(logger, "Hola! Soy un log");
 
 	/*---------------------------------------------------PARTE 5-------------------------------------------------------------*/
 	// Proximamente
-	config_destroy(config);
-	log_destroy(logger);
 	return 0;
 }
 
@@ -109,19 +111,72 @@ free(leido);
 
 void paquete(int conexion)
 {
-	// Ahora toca lo divertido!
-	char* leido;
-	t_paquete* paquete;
+    // Crear un paquete
+    t_paquete* paquete = crear_paquete();
+    if (paquete == NULL) {
+        fprintf(stderr, "Error al crear el paquete\n");
+        return;
+    }
 
-	// Leemos y esta vez agregamos las lineas al paquete
+    // Inicializar el buffer para el mensaje
+    char* mensaje = NULL;
+    size_t mensaje_size = 0;
+    size_t buffer_size = 1024; // Tamaño inicial del buffer
+    mensaje = malloc(buffer_size);
+    if (mensaje == NULL) {
+        perror("Error al asignar memoria para el mensaje");
+        eliminar_paquete(paquete);
+        return;
+    }
+    mensaje[0] = '\0'; // Inicializar el buffer con una cadena vacía
 
+    // Leer y concatenar líneas hasta encontrar una línea vacía
+    while (1) {
+        char* leido = readline("> ");
+        if (leido == NULL || strcmp(leido, "") == 0) {
+            free(leido);
+            break;
+        }
 
-	// ¡No te olvides de liberar las líneas y el paquete antes de regresar!
-	
+        // Verificar si el buffer necesita ser ampliado
+        size_t leido_size = strlen(leido);
+        if (mensaje_size + leido_size >= buffer_size) {
+            buffer_size = mensaje_size + leido_size + 1;
+            char* temp = realloc(mensaje, buffer_size);
+            if (temp == NULL) {
+                perror("Error al reasignar memoria para el mensaje");
+                free(leido);
+                free(mensaje);
+                eliminar_paquete(paquete);
+                return;
+            }
+            mensaje = temp;
+        }
+
+        // Concatenar la línea leída al buffer
+        strcat(mensaje, leido);
+        mensaje_size += leido_size;
+
+        // Liberar la memoria de la línea leída
+        free(leido);
+    }
+
+    // Agregar el buffer concatenado al paquete
+    agregar_a_paquete(paquete, mensaje, mensaje_size);
+
+    // Enviar el paquete
+   enviar_paquete(paquete,conexion);
+
+    // Liberar recursos
+    free(mensaje);
+    eliminar_paquete(paquete);
 }
 
 void terminar_programa(int conexion, t_log* logger, t_config* config)
 {
+	liberar_conexion(conexion);
+	config_destroy(config);
+	log_destroy(logger);
 	/* Y por ultimo, hay que liberar lo que utilizamos (conexion, log y config) 
 	  con las funciones de las commons y del TP mencionadas en el enunciado */
 }
